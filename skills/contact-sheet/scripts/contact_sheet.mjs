@@ -59,8 +59,9 @@ Options:
   --analysis-width <pixels>     downscale width for YDIF analysis (default: 480)
   --diff-pixel-threshold <0-255>
                                 max-channel RGB delta for highlights (default: 24)
-  --jobs <count>                concurrent transition renderers
+  --workers <count>             concurrent transition renderers
                                 (default: ${defaultJobs}, derived from ${logicalCpuCount} logical CPUs)
+  --jobs <count>                backward-compatible alias for --workers
   -h, --help                    show this help
 
 The state cap also caps static triptychs at N-1. Lower-signal dropped bursts
@@ -99,8 +100,9 @@ function parseArgs(argv) {
     thumbWidth: DEFAULT_THUMB_WIDTH,
     analysisWidth: DEFAULT_ANALYSIS_WIDTH,
     diffPixelThreshold: DEFAULT_DIFF_PIXEL_THRESHOLD,
-    jobs: defaultJobs,
-    jobsExplicit: false,
+    workers: defaultJobs,
+    workersExplicit: false,
+    workersFlag: null,
     video: null,
   };
   const valueFlags = new Map([
@@ -116,7 +118,8 @@ function parseArgs(argv) {
       "--diff-pixel-threshold",
       ["diffPixelThreshold", (value) => parseInteger("--diff-pixel-threshold", value)],
     ],
-    ["--jobs", ["jobs", (value) => parseInteger("--jobs", value)]],
+    ["--workers", ["workers", (value) => parseInteger("--workers", value)]],
+    ["--jobs", ["workers", (value) => parseInteger("--jobs", value)]],
   ]);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -139,8 +142,9 @@ function parseArgs(argv) {
         index += 1;
       }
       options[key] = convert(value);
-      if (flag === "--jobs") {
-        options.jobsExplicit = true;
+      if (flag === "--workers" || flag === "--jobs") {
+        options.workersExplicit = true;
+        options.workersFlag = flag;
       }
     } else if (raw.startsWith("-")) {
       fail(`unknown option: ${raw}\n\n${usage()}`);
@@ -157,8 +161,8 @@ function parseArgs(argv) {
   if (options.maxFrames < 1) {
     fail("--max-frames must be at least 1");
   }
-  if (options.jobs < 1) {
-    fail("--jobs must be at least 1");
+  if (options.workers < 1) {
+    fail("--workers must be at least 1");
   }
   if (options.diffPixelThreshold < 0 || options.diffPixelThreshold > 255) {
     fail("--diff-pixel-threshold must be between 0 and 255");
@@ -783,10 +787,10 @@ async function renderTransitionDiff({
   ]);
 }
 
-async function runPool(tasks, jobs) {
+async function runPool(tasks, workers) {
   let nextIndex = 0;
-  const workers = Array.from(
-    { length: Math.min(jobs, Math.max(1, tasks.length)) },
+  const workerTasks = Array.from(
+    { length: Math.min(workers, Math.max(1, tasks.length)) },
     async () => {
       while (nextIndex < tasks.length) {
         const index = nextIndex;
@@ -795,7 +799,7 @@ async function runPool(tasks, jobs) {
       }
     },
   );
-  await Promise.all(workers);
+  await Promise.all(workerTasks);
 }
 
 async function buildStaticDiffs({
@@ -806,7 +810,7 @@ async function buildStaticDiffs({
   width,
   height,
   capabilities,
-  jobs,
+  workers,
 }) {
   const diffDir = path.join(outDir, "diffs");
   await removePngs(diffDir);
@@ -828,7 +832,7 @@ async function buildStaticDiffs({
         capabilities,
       });
     }),
-    jobs,
+    workers,
   );
 
   const sheet = path.join(outDir, "diff-contact-sheet.png");
@@ -1608,9 +1612,9 @@ async function main() {
     );
   }
   console.log(
-    `render jobs ${options.jobs} (${
-      options.jobsExplicit
-        ? "from --jobs"
+    `render workers ${options.workers} (${
+      options.workersExplicit
+        ? `from ${options.workersFlag}`
         : `default from ${logicalCpuCount} logical CPUs`
     })`,
   );
@@ -1665,7 +1669,7 @@ async function main() {
     width,
     height,
     capabilities,
-    jobs: options.jobs,
+    workers: options.workers,
   });
   const [, , staticDiffs] = await Promise.all([
     writeTimelineSvg(

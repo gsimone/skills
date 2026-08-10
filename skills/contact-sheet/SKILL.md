@@ -90,9 +90,9 @@ or point the user at it as the proof artifact for before/after comparisons.
    static diff overview.
 
 State PNGs are decoded to RGB together in one `ffmpeg` process for metrics.
-Transition triptychs render through a bounded worker pool; `--jobs N` controls
+Transition triptychs render through a bounded worker pool; `--workers N` controls
 its concurrency. The default is CPU-derived and capped conservatively, and the
-chosen job count is printed at startup. Output filenames and report ordering
+chosen worker count is printed at startup. Output filenames and report ordering
 remain chronological regardless of completion order. PNG compression is tuned
 for fast lossless output, so pixel values remain exact.
 
@@ -126,7 +126,8 @@ was generated.
 - Static green highlights are noisy → raise `--diff-pixel-threshold` (default
   24). Small anti-aliased/caret changes are absent → lower it. This threshold
   changes static state comparisons, not burst detection.
-- Tune rendering concurrency with `--jobs N`; lower it on constrained machines,
-  or raise it cautiously when many transition triptychs dominate runtime.
+- Tune rendering concurrency with `--workers N`; benchmark a representative
+  recording at a few values because more workers can become slower from CPU and
+  disk contention. `--jobs N` remains a backward-compatible alias.
 - Very long videos → raise `--max-frames`; the sheet tiles whatever count you allow.
 - 120fps recordings work as-is; YDIF is per decoded frame, timestamps are true pts.
