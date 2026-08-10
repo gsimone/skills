@@ -8,10 +8,11 @@ description: Turn a screen recording or any video into analyzable visual-change 
 One command turns a video into data an agent can actually read:
 
 ```bash
-python3 ~/.agents/skills/contact-sheet/scripts/contact_sheet.py <video.mp4> [-o outdir]
+node ~/.agents/skills/contact-sheet/scripts/contact_sheet.mjs <video.mp4> [-o outdir]
 ```
 
-Requires `ffmpeg`/`ffprobe` on PATH; python stdlib only, no ImageMagick.
+Requires Node.js 18+ and `ffmpeg`/`ffprobe` on PATH. The script has no npm,
+Python, or ImageMagick dependencies.
 
 ## Default agent workflow
 
@@ -56,8 +57,8 @@ or small layout shifts.
 
 `visualizer.html` is self-contained (frames embedded as data URIs up to 25MB
 total, past that it falls back to `frames/` paths and needs
-`python3 -m http.server` for diff mode) — open it in any browser, or point the
-user at it as the proof artifact for before/after comparisons.
+an HTTP server such as `npx serve .` for diff mode) — open it in any browser,
+or point the user at it as the proof artifact for before/after comparisons.
 
 - **Timeline scrubbing**: the strip shows the frame-difference sparkline, burst
   spans, and an orange accent tick per captured state. Click or drag to scrub;
@@ -87,6 +88,13 @@ user at it as the proof artifact for before/after comparisons.
    changed-pixel percentage, mean absolute RGB delta, maximum channel delta,
    and changed-pixel bounding box, then renders a labeled triptych and tiled
    static diff overview.
+
+State PNGs are decoded to RGB together in one `ffmpeg` process for metrics.
+Transition triptychs render through a bounded worker pool; `--jobs N` controls
+its concurrency. The default is CPU-derived and capped conservatively, and the
+chosen job count is printed at startup. Output filenames and report ordering
+remain chronological regardless of completion order. PNG compression is tuned
+for fast lossless output, so pixel values remain exact.
 
 The default is bounded to 48 states and therefore at most 47 transition
 triptychs. Raising `--max-frames` explicitly raises both bounds. The report and
@@ -118,5 +126,7 @@ was generated.
 - Static green highlights are noisy → raise `--diff-pixel-threshold` (default
   24). Small anti-aliased/caret changes are absent → lower it. This threshold
   changes static state comparisons, not burst detection.
+- Tune rendering concurrency with `--jobs N`; lower it on constrained machines,
+  or raise it cautiously when many transition triptychs dominate runtime.
 - Very long videos → raise `--max-frames`; the sheet tiles whatever count you allow.
 - 120fps recordings work as-is; YDIF is per decoded frame, timestamps are true pts.
