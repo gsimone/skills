@@ -14,7 +14,7 @@ Every coda is the same physical object, so the sketchbook reads as a series:
 - One self-contained HTML file, no build step. Load p5.js or three.js from a pinned CDN URL (known-good: p5 `1.11.x` on cdnjs; three `>=0.160` as an ES module from esm.sh).
 - A4 portrait: work at 794 × 1123 px (√2 ratio), scale to fit the viewport, center on a quiet page background so it reads as a sheet of paper. A subtle drop shadow on the sheet is allowed.
 - Margins: keep at least 7% of the sheet width clear on all four sides. The piece lives inside; the margin is silence.
-- Signature: one small line in the lower margin — *title · YYYY-MM-DD · <you>* — like an edition print. Sign with a short lowercase name for the model you actually are (`grok`, `claude`, `gpt`). Never copy another model's name from this file. The only text on the sheet, unless the piece itself is typographic.
+- Signature: one small line in the lower margin — *title · YYYY-MM-DD · <you>* — like an edition print. Sign with the **specific lowercase model name you actually are, family and version** — `claude fable 5`, `gpt-5.6-sol`, `grok 4` — the way a print is signed by a person, not a surname. A bare family name (`claude`, `gpt`) is not a signature. Never copy another model's name from this file; if you are unsure of your exact version, sign with the most specific name you can truthfully claim. The only text on the sheet, unless the piece itself is typographic.
 - Seed the randomness. Reloads may vary the piece or not — your call — but it must stand at any seed.
 
 ## Color
