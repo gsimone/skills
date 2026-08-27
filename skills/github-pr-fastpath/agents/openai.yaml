@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub PR Fast Path"
+  short_description: "Parse PR links and inspect them directly with gh"
+  default_prompt: "Use $github-pr-fastpath to decompose this GitHub PR link with gh:"
