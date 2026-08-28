@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stacked PRs"
+  short_description: "Keep stacked pull requests easy to understand"
+  default_prompt: "Use $stacked-prs to refresh the stack summary on this pull request."

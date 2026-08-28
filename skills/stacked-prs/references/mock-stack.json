@@ -1,0 +1,46 @@
+{
+  "repo": "acme/widgets",
+  "stackNumber": 7,
+  "currentPrNumber": 103,
+  "prs": [
+    {
+      "number": 101,
+      "title": "Add widget status storage",
+      "body": "Adds the status column and store methods.",
+      "baseRefName": "main",
+      "headRefName": "widget-status-store",
+      "url": "https://github.com/acme/widgets/pull/101",
+      "isDraft": false,
+      "additions": 140,
+      "deletions": 12,
+      "commits": [{ "messageHeadline": "Add widget status schema and store" }],
+      "files": [{ "path": "packages/backend/src/store/widgets.ts" }]
+    },
+    {
+      "number": 102,
+      "title": "Expose widget status over tRPC",
+      "body": "Wires status reads and writes through the controller and router.",
+      "baseRefName": "widget-status-store",
+      "headRefName": "widget-status-api",
+      "url": "https://github.com/acme/widgets/pull/102",
+      "isDraft": false,
+      "additions": 96,
+      "deletions": 8,
+      "commits": [{ "messageHeadline": "Expose status operations" }],
+      "files": [{ "path": "packages/backend/src/router/widgets.ts" }]
+    },
+    {
+      "number": 103,
+      "title": "Show widget status in the table",
+      "body": "Renders and edits status in the widget table.",
+      "baseRefName": "widget-status-api",
+      "headRefName": "widget-status-ui",
+      "url": "https://github.com/acme/widgets/pull/103",
+      "isDraft": true,
+      "additions": 175,
+      "deletions": 21,
+      "commits": [{ "messageHeadline": "Render editable widget status" }],
+      "files": [{ "path": "apps/builder/src/components/WidgetTable.tsx" }]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "overallSummary": "Add persisted, API-backed widget statuses that users can edit from the widget table.",
+  "prs": [
+    { "number": 101, "summary": "Persist widget statuses and expose canonical store operations." },
+    { "number": 102, "summary": "Expose widget status reads and writes through the controller and tRPC." },
+    { "number": 103, "summary": "Render and edit widget statuses in the widget table." }
+  ]
+}
