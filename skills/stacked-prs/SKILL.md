@@ -11,10 +11,10 @@ Make every PR in a stack answer three questions at a glance:
 2. Which row is this PR, and what does it contribute?
 3. Which PRs make up the stack, in merge order?
 
-The bundled harness discovers the chain from GitHub branch relationships, asks
+The bundled harness reads GitHub's native stack membership and order, asks
 `gpt-5.6-luna` at high reasoning effort on Fast mode for concise summaries, and
-renders the same stack table into each PR body, highlighting the current row.
-It preserves all text outside:
+renders the same stack table into each PR body, highlighting the current row. It
+preserves all text outside:
 
 ```html
 <!-- stacked-prs:start -->
@@ -30,12 +30,13 @@ node ~/.agents/skills/stacked-prs/scripts/stacked_prs.mjs https://github.com/OWN
 node ~/.agents/skills/stacked-prs/scripts/stacked_prs.mjs OWNER/REPO
 ```
 
-The default is a preview. Inspect every rendered block, especially merge order
-and summaries. When the preview is accurate and the user has asked to maintain
-the GitHub descriptions, rerun with `--write`:
+The default is a preview. Save its summary model, then inspect every rendered
+block. When the preview is accurate and the user has asked to maintain the
+GitHub descriptions, write that exact saved model:
 
 ```bash
-node ~/.agents/skills/stacked-prs/scripts/stacked_prs.mjs https://github.com/OWNER/REPO/pull/123 --write
+node ~/.agents/skills/stacked-prs/scripts/stacked_prs.mjs OWNER/REPO --save-summaries /tmp/stacked-prs.json
+node ~/.agents/skills/stacked-prs/scripts/stacked_prs.mjs OWNER/REPO --summaries /tmp/stacked-prs.json --write
 ```
 
 For `OWNER/REPO`, the harness resolves the PR associated with the current local
@@ -46,18 +47,11 @@ is undesirable.
 
 ## Stack identity
 
-GitHub has no first-class stack object. The harness treats open PR branch
-relationships as the source of truth:
-
-- a PR whose head branch is another PR's base branch comes earlier;
-- a PR based on another PR's head branch comes later;
-- traversal stops where no matching open PR exists.
-
-The chain must be linear. If one head branch has multiple child PRs, the harness
-stops and reports the ambiguity instead of inventing an order. Before writing,
-check that each adjacent row's base branch equals the preceding row's head
-branch. Branch retargeting and merged or closed PRs can change the discovered
-chain, so rerun after either event.
+GitHub's native stack is the source of truth. The harness queries the Stacks API
+through `gh api`, using the selected PR's membership to obtain the complete
+bottom-to-top order. Native stacks are strictly linear, and the returned list
+can include merged or closed members. A PR that does not belong to a GitHub
+stack fails explicitly instead of being grouped by branch topology.
 
 ## Summary contract
 
@@ -70,9 +64,8 @@ response contains:
   incremental contribution.
 
 Treat generated summaries as proposed documentation, not evidence about code.
-Correct any material mismatch before `--write`. To revise summaries without
-another model call, save the preview's `summary_model` JSON and pass it with
-`--summaries FILE`.
+Correct any material mismatch in the saved JSON before `--write`. Writes require
+`--summaries FILE`, ensuring GitHub receives the same model that was previewed.
 
 ## Marker safety
 

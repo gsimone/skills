@@ -19,6 +19,7 @@ Options:
   --repo OWNER/REPO       repository for a bare PR number
   --write                 update every PR after rendering (default: preview)
   --summaries FILE        use summary JSON instead of calling Codex
+  --save-summaries FILE   save summary JSON for a later --write
   --stack FILE            use stack JSON instead of GitHub (preview only)
   -h, --help              show this help`;
 }
@@ -27,8 +28,21 @@ function fail(message) {
   throw new Error(message);
 }
 
-function parseArgs(argv) {
-  const options = { target: null, repo: null, write: false, summaries: null, stack: null };
+export function parseArgs(argv) {
+  const options = {
+    target: null,
+    repo: null,
+    write: false,
+    summaries: null,
+    saveSummaries: null,
+    stack: null,
+  };
+  const valueFlags = new Map([
+    ["--repo", "repo"],
+    ["--summaries", "summaries"],
+    ["--save-summaries", "saveSummaries"],
+    ["--stack", "stack"],
+  ]);
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (value === "-h" || value === "--help") {
@@ -39,10 +53,10 @@ function parseArgs(argv) {
       options.write = true;
       continue;
     }
-    if (["--repo", "--summaries", "--stack"].includes(value)) {
+    if (valueFlags.has(value)) {
       const next = argv[index + 1];
       if (!next) fail(`${value} requires a value`);
-      options[value.slice(2)] = next;
+      options[valueFlags.get(value)] = next;
       index += 1;
       continue;
     }
@@ -50,8 +64,9 @@ function parseArgs(argv) {
     if (options.target !== null) fail(`unexpected argument: ${value}`);
     options.target = value;
   }
-  if (!options.stack && !options.target) fail(`a PR URL or number is required\n\n${usage()}`);
+  if (!options.stack && !options.target) fail(`a PR URL, number, or repository is required\n\n${usage()}`);
   if (options.stack && options.write) fail("--stack is fixture input and cannot be combined with --write");
+  if (options.write && !options.summaries) fail("--write requires --summaries FILE from an inspected preview");
   return options;
 }
 
@@ -158,35 +173,31 @@ export function renderBlock(stack, summaries, currentPrNumber) {
   ].join("\n");
 }
 
-export function orderStack(openPrs, currentPrNumber) {
-  const current = openPrs.find((pr) => pr.number === currentPrNumber);
-  if (!current) fail(`PR #${currentPrNumber} was not found among open pull requests`);
-  const visited = new Set([current.number]);
-  const before = [];
-  let cursor = current;
-  while (true) {
-    const candidates = openPrs.filter((pr) => pr.headRefName === cursor.baseRefName);
-    if (candidates.some((pr) => visited.has(pr.number))) fail(`branch cycle detected before PR #${cursor.number}`);
-    const parents = candidates.filter((pr) => !visited.has(pr.number));
-    if (parents.length > 1) fail(`ambiguous parent for PR #${cursor.number}: ${parents.map((pr) => `#${pr.number}`).join(", ")}`);
-    if (parents.length === 0) break;
-    cursor = parents[0];
-    visited.add(cursor.number);
-    before.unshift(cursor);
+export function validateStack(stack) {
+  if (!stack || !Array.isArray(stack.prs) || stack.prs.length < 2) {
+    fail("a GitHub stack must contain at least two pull requests");
   }
-  const after = [];
-  cursor = current;
-  while (true) {
-    const candidates = openPrs.filter((pr) => pr.baseRefName === cursor.headRefName);
-    if (candidates.some((pr) => visited.has(pr.number))) fail(`branch cycle detected after PR #${cursor.number}`);
-    const children = candidates.filter((pr) => !visited.has(pr.number));
-    if (children.length > 1) fail(`ambiguous children after PR #${cursor.number}: ${children.map((pr) => `#${pr.number}`).join(", ")}`);
-    if (children.length === 0) break;
-    cursor = children[0];
-    visited.add(cursor.number);
-    after.push(cursor);
+  const numbers = stack.prs.map((pr) => pr.number);
+  if (new Set(numbers).size !== numbers.length) fail("stack contains duplicate pull request numbers");
+  if (!numbers.includes(stack.currentPrNumber)) {
+    fail(`current PR #${stack.currentPrNumber} is absent from the stack`);
   }
-  return [...before, current, ...after];
+  return stack;
+}
+
+export function nativeStackIdentity(nativeStacks, currentPrNumber) {
+  if (!Array.isArray(nativeStacks) || nativeStacks.length === 0) {
+    fail(`PR #${currentPrNumber} does not belong to a GitHub stack`);
+  }
+  if (nativeStacks.length !== 1) {
+    fail(`GitHub returned ${nativeStacks.length} stacks for PR #${currentPrNumber}`);
+  }
+  const nativeStack = nativeStacks[0];
+  const prNumbers = nativeStack.pull_requests?.map((pr) => pr.number);
+  if (!Array.isArray(prNumbers) || prNumbers.length < 2 || !prNumbers.includes(currentPrNumber)) {
+    fail(`GitHub returned an invalid stack for PR #${currentPrNumber}`);
+  }
+  return { stackNumber: nativeStack.number, prNumbers };
 }
 
 export function parseTarget(target, explicitRepo) {
@@ -224,14 +235,23 @@ async function loadGithubStack(target, explicitRepo) {
   if (!Number.isInteger(number) || number < 1) {
     fail(`could not resolve the pull request for the current branch in ${repo}`);
   }
+  const repoParts = repo.split("/");
+  const hostname = repoParts.length === 3 ? repoParts[0] : null;
+  const [owner, name] = repoParts.length === 3 ? repoParts.slice(1) : repoParts;
+  if (!owner || !name || repoParts.length < 2 || repoParts.length > 3) {
+    fail(`invalid repository: ${repo}`);
+  }
+  const apiArgs = ["api"];
+  if (hostname) apiArgs.push("--hostname", hostname);
+  apiArgs.push(`repos/${owner}/${name}/stacks?pull_request=${number}`);
+  const nativeStacks = JSON.parse(await run("gh", apiArgs));
+  const { stackNumber, prNumbers } = nativeStackIdentity(nativeStacks, number);
   const fields = "number,title,body,baseRefName,headRefName,url,isDraft";
-  const listed = JSON.parse(await run("gh", ["pr", "list", "--repo", repo, "--state", "open", "--limit", "1000", "--json", fields]));
-  const ordered = orderStack(listed, number);
   const detailFields = `${fields},additions,deletions,commits,files`;
-  const prs = await Promise.all(ordered.map(async (pr) => JSON.parse(
-    await run("gh", ["pr", "view", String(pr.number), "--repo", repo, "--json", detailFields]),
+  const prs = await Promise.all(prNumbers.map(async (prNumber) => JSON.parse(
+    await run("gh", ["pr", "view", String(prNumber), "--repo", repo, "--json", detailFields]),
   )));
-  return { repo, currentPrNumber: number, prs };
+  return validateStack({ repo, stackNumber, currentPrNumber: number, prs });
 }
 
 function modelInput(stack) {
@@ -327,11 +347,14 @@ async function main() {
   const stack = options.stack
     ? JSON.parse(await readFile(options.stack, "utf8"))
     : await loadGithubStack(options.target, options.repo);
-  const orderedPrs = orderStack(stack.prs, stack.currentPrNumber);
-  const orderedStack = { ...stack, prs: orderedPrs };
+  const orderedStack = validateStack(stack);
   const summaries = options.summaries
     ? validateSummaryModel(orderedStack, JSON.parse(await readFile(options.summaries, "utf8")))
     : await generateSummaries(orderedStack);
+  if (options.saveSummaries) {
+    await writeFile(options.saveSummaries, `${JSON.stringify(summaries, null, 2)}\n`);
+    console.log(`saved summaries to ${options.saveSummaries}`);
+  }
   const rendered = orderedStack.prs.map((pr) => ({
     number: pr.number,
     body: replaceManagedRegion(pr.body ?? "", renderBlock(orderedStack, summaries, pr.number)),

@@ -7,19 +7,27 @@ import { fileURLToPath } from "node:url";
 import {
   END_MARKER,
   START_MARKER,
-  orderStack,
+  nativeStackIdentity,
+  parseArgs,
   parseTarget,
   renderBlock,
   replaceManagedRegion,
+  validateStack,
 } from "./stacked_prs.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const stack = JSON.parse(await readFile(path.join(here, "../references/mock-stack.json"), "utf8"));
 const summaries = JSON.parse(await readFile(path.join(here, "../references/mock-summaries.json"), "utf8"));
 
-test("orders an unordered chain from root to tip", () => {
-  const shuffled = [stack.prs[2], stack.prs[0], stack.prs[1]];
-  assert.deepEqual(orderStack(shuffled, 102).map((pr) => pr.number), [101, 102, 103]);
+test("preserves GitHub's native bottom-to-top stack order", () => {
+  assert.equal(validateStack(stack), stack);
+  assert.deepEqual(stack.prs.map((pr) => pr.number), [101, 102, 103]);
+  assert.deepEqual(
+    nativeStackIdentity([
+      { number: 7, pull_requests: [{ number: 101 }, { number: 102 }, { number: 103 }] },
+    ], 102),
+    { stackNumber: 7, prNumbers: [101, 102, 103] },
+  );
 });
 
 test("renders overall context and highlights the current row", () => {
@@ -51,16 +59,17 @@ test("refuses malformed or duplicate marker pairs", () => {
   );
 });
 
-test("handles a missing GitHub body and refuses branch cycles", () => {
+test("handles a missing GitHub body and validates native membership", () => {
   assert.match(replaceManagedRegion(null, "managed"), /^managed/);
-  const cyclic = [
-    { number: 1, baseRefName: "branch-b", headRefName: "branch-a" },
-    { number: 2, baseRefName: "branch-a", headRefName: "branch-b" },
-  ];
-  assert.throws(() => orderStack(cyclic, 1), /branch cycle/);
+  assert.throws(() => validateStack({ currentPrNumber: 1, prs: [{ number: 1 }] }), /at least two/);
+  assert.throws(
+    () => validateStack({ currentPrNumber: 3, prs: [{ number: 1 }, { number: 2 }] }),
+    /absent/,
+  );
 });
 
 test("accepts a repository slug and resolves its current-branch PR later", () => {
   assert.deepEqual(parseTarget("acme/widgets"), { repo: "acme/widgets", number: null });
   assert.deepEqual(parseTarget("42", "acme/widgets"), { repo: "acme/widgets", number: 42 });
+  assert.throws(() => parseArgs(["42", "--write"]), /requires --summaries/);
 });
