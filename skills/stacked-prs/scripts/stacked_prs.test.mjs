@@ -22,10 +22,10 @@ test("orders an unordered chain from root to tip", () => {
   assert.deepEqual(orderStack(shuffled, 102).map((pr) => pr.number), [101, 102, 103]);
 });
 
-test("renders overall, current, and whole-stack context", () => {
+test("renders overall context and highlights the current row", () => {
   const block = renderBlock(stack, summaries, 102);
   assert.match(block, /\*\*Stack:\*\* Add persisted, API-backed widget statuses/);
-  assert.match(block, /\*\*This PR:\*\* Expose widget status reads and writes/);
+  assert.doesNotMatch(block, /This PR:/);
   assert.match(block, /\*\*\[#102\]\(https:\/\/github\.com\/acme\/widgets\/pull\/102\) \(this PR\)\*\*/);
   assert.ok(block.indexOf("#101") < block.indexOf("#102"));
   assert.ok(block.indexOf("#102") < block.indexOf("#103"));

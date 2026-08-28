@@ -8,12 +8,13 @@ description: Discover a linear GitHub stacked-PR chain and keep a marked stack s
 Make every PR in a stack answer three questions at a glance:
 
 1. What does the stack accomplish overall?
-2. What does this PR contribute?
+2. Which row is this PR, and what does it contribute?
 3. Which PRs make up the stack, in merge order?
 
 The bundled harness discovers the chain from GitHub branch relationships, asks
 `gpt-5.6-luna` at high reasoning effort on Fast mode for concise summaries, and
-renders the same stack table into each PR body. It preserves all text outside:
+renders the same stack table into each PR body, highlighting the current row.
+It preserves all text outside:
 
 ```html
 <!-- stacked-prs:start -->

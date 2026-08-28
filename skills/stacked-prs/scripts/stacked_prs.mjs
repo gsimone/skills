@@ -141,8 +141,7 @@ export function validateSummaryModel(stack, summaries) {
 export function renderBlock(stack, summaries, currentPrNumber) {
   validateSummaryModel(stack, summaries);
   const byNumber = new Map(summaries.prs.map((item) => [item.number, item.summary]));
-  const currentSummary = byNumber.get(currentPrNumber);
-  if (!currentSummary) fail(`no summary found for current PR #${currentPrNumber}`);
+  if (!byNumber.has(currentPrNumber)) fail(`no summary found for current PR #${currentPrNumber}`);
   const rows = stack.prs.map((pr) => {
     const link = `[#${pr.number}](${pr.url})`;
     const label = pr.number === currentPrNumber ? `**${link} (this PR)**` : link;
@@ -151,8 +150,6 @@ export function renderBlock(stack, summaries, currentPrNumber) {
   return [
     START_MARKER,
     `> **Stack:** ${escapeCell(summaries.overallSummary)}`,
-    ">",
-    `> **This PR:** ${escapeCell(currentSummary)}`,
     "",
     "| PR | What it does |",
     "| --- | --- |",
