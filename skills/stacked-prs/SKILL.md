@@ -22,10 +22,11 @@ renders the same stack table into each PR body. It preserves all text outside:
 
 ## Run it
 
-From any checkout of the repository, pass a PR URL or number:
+Pass a PR URL, number, or repository slug:
 
 ```bash
 node ~/.agents/skills/stacked-prs/scripts/stacked_prs.mjs https://github.com/OWNER/REPO/pull/123
+node ~/.agents/skills/stacked-prs/scripts/stacked_prs.mjs OWNER/REPO
 ```
 
 The default is a preview. Inspect every rendered block, especially merge order
@@ -36,9 +37,11 @@ the GitHub descriptions, rerun with `--write`:
 node ~/.agents/skills/stacked-prs/scripts/stacked_prs.mjs https://github.com/OWNER/REPO/pull/123 --write
 ```
 
-For a bare PR number, the harness resolves the repository from the current
+For `OWNER/REPO`, the harness resolves the PR associated with the current local
+branch. For a bare PR number, it resolves the repository from the current
 checkout. It requires `gh` and `codex` on `PATH`, authenticated for the target
-repository. Use `--repo OWNER/REPO` when repository inference is undesirable.
+repository. Use `--repo OWNER/REPO` with a bare number when repository inference
+is undesirable.
 
 ## Stack identity
 

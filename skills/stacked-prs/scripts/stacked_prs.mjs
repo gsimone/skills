@@ -11,7 +11,7 @@ export const START_MARKER = "<!-- stacked-prs:start -->";
 export const END_MARKER = "<!-- stacked-prs:end -->";
 
 function usage() {
-  return `Usage: stacked_prs.mjs [PR_URL|PR_NUMBER] [options]
+  return `Usage: stacked_prs.mjs [PR_URL|PR_NUMBER|OWNER/REPO] [options]
 
 Preview or synchronize a concise stack summary across GitHub PR bodies.
 
@@ -192,8 +192,10 @@ export function orderStack(openPrs, currentPrNumber) {
   return [...before, current, ...after];
 }
 
-function parseTarget(target, explicitRepo) {
+export function parseTarget(target, explicitRepo) {
   if (/^\d+$/.test(target)) return { repo: explicitRepo, number: Number(target) };
+  const repoMatch = target.match(/^([^/\s]+)\/([^/\s]+)$/);
+  if (repoMatch) return { repo: `${repoMatch[1]}/${repoMatch[2]}`, number: null };
   let parsed;
   try {
     parsed = new URL(target);
@@ -212,14 +214,27 @@ function parseTarget(target, explicitRepo) {
 async function loadGithubStack(target, explicitRepo) {
   const parsed = parseTarget(target, explicitRepo);
   const repo = parsed.repo ?? (await run("gh", ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])).trim();
+  const branch = parsed.number === null
+    ? (await run("git", ["branch", "--show-current"])).trim()
+    : null;
+  if (parsed.number === null && branch.length === 0) {
+    fail(`cannot resolve a pull request from ${repo} while Git is in detached HEAD state`);
+  }
+  const number = parsed.number ?? Number((await run(
+    "gh",
+    ["pr", "view", branch, "--repo", repo, "--json", "number", "--jq", ".number"],
+  )).trim());
+  if (!Number.isInteger(number) || number < 1) {
+    fail(`could not resolve the pull request for the current branch in ${repo}`);
+  }
   const fields = "number,title,body,baseRefName,headRefName,url,isDraft";
   const listed = JSON.parse(await run("gh", ["pr", "list", "--repo", repo, "--state", "open", "--limit", "1000", "--json", fields]));
-  const ordered = orderStack(listed, parsed.number);
+  const ordered = orderStack(listed, number);
   const detailFields = `${fields},additions,deletions,commits,files`;
   const prs = await Promise.all(ordered.map(async (pr) => JSON.parse(
     await run("gh", ["pr", "view", String(pr.number), "--repo", repo, "--json", detailFields]),
   )));
-  return { repo, currentPrNumber: parsed.number, prs };
+  return { repo, currentPrNumber: number, prs };
 }
 
 function modelInput(stack) {

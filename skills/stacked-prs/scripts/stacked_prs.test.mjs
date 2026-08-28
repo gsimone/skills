@@ -8,6 +8,7 @@ import {
   END_MARKER,
   START_MARKER,
   orderStack,
+  parseTarget,
   renderBlock,
   replaceManagedRegion,
 } from "./stacked_prs.mjs";
@@ -57,4 +58,9 @@ test("handles a missing GitHub body and refuses branch cycles", () => {
     { number: 2, baseRefName: "branch-a", headRefName: "branch-b" },
   ];
   assert.throws(() => orderStack(cyclic, 1), /branch cycle/);
+});
+
+test("accepts a repository slug and resolves its current-branch PR later", () => {
+  assert.deepEqual(parseTarget("acme/widgets"), { repo: "acme/widgets", number: null });
+  assert.deepEqual(parseTarget("42", "acme/widgets"), { repo: "acme/widgets", number: 42 });
 });
