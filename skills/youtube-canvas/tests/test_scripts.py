@@ -55,7 +55,19 @@ class TldrawApiTests(unittest.TestCase):
             ), patch(
                 "tldraw_api.script_workspace", return_value=workspace
             ), patch(
-                "tldraw_api.script_status", return_value={"state": "applied"}
+                "tldraw_api.script_status",
+                side_effect=[
+                    {
+                        "state": "applied",
+                        "currentDiskDigest": "old",
+                        "lastAppliedDigest": "old",
+                    },
+                    {
+                        "state": "applied",
+                        "currentDiskDigest": "new",
+                        "lastAppliedDigest": "new",
+                    },
+                ],
             ):
                 result = tldraw_api.install_board_script("tldr:file:abc", source_dir)
 

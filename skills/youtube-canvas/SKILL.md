@@ -17,7 +17,7 @@ The canvas is a **research artifact**, not a transcript dump. Select the moments
 4. **Keep generated content replaceable.** The renderer tags generated shapes. Re-rendering removes only generated shapes for this video; human notes, arrows, drawings, and unrelated canvas content survive.
 5. **Use a small intermediate representation.** Analysis lives in `analysis.json`; canvas layout is deterministic.
 6. **Do not hand-edit `.tldraw` files.** Drive tldraw Offline through its local Canvas API.
-7. **Keep the source watchable.** Local canvases include a fixed, collapsible video player; timestamp buttons seek that player while separate links preserve the YouTube fallback.
+7. **Keep the source watchable.** Local canvases include a fixed, movable, resizable, collapsible video player; timestamp buttons seek that player while separate links preserve the YouTube fallback.
 
 ## Requirements
 
@@ -131,7 +131,7 @@ The board should contain:
 - thematic cluster columns
 - timestamp-linked segment cards
 - representative screenshots where available
-- a fixed, collapsible video player that remains visible while panning and zooming
+- a fixed video player that remains visible while panning and zooming, moves by dragging its header, resizes from the **↔** header control, and collapses to **Watch**
 - timestamp buttons that seek the fixed player, plus separate YouTube deep links
 - enough whitespace for human notes and arrows
 
@@ -154,6 +154,7 @@ Check:
 - timestamp links are present
 - screenshots correspond to the intended segment
 - clicking a timestamp button seeks and opens the fixed player at that segment
+- dragging the player header moves it within the window and dragging the **↔** header control resizes it
 - collapsing the player leaves a small **Watch** control
 - 2–6 clusters, not a 30-column mess
 - user-authored shapes and unrelated board scripts remain after a re-render

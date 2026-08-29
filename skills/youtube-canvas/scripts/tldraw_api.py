@@ -209,17 +209,34 @@ def install_board_script(doc_id: str, source_dir: Path, timeout: float = 10) -> 
         return {"installed": False, "reason": "document already has an unrelated board script"}
 
     filenames = ("youtubePlayer.js", "config.js", "main.js")
+    sources: dict[str, Path] = {}
+    changed = False
     for filename in filenames:
         source = source_dir / filename
         if not source.is_file():
             raise RuntimeError(f"missing board-script source: {source}")
-        shutil.copyfile(source, script_dir / filename)
+        destination = script_dir / filename
+        sources[filename] = source
+        changed = changed or (
+            not destination.is_file() or destination.read_bytes() != source.read_bytes()
+        )
+
+    before_status = script_status(doc_id)
+    before_digest = before_status.get("currentDiskDigest")
+    for filename in filenames:
+        shutil.copyfile(sources[filename], script_dir / filename)
+
+    if not changed and before_status.get("state") == "applied":
+        return {"installed": True, "state": "applied"}
 
     deadline = time.monotonic() + timeout
     status: dict[str, Any] = {}
     while time.monotonic() < deadline:
         status = script_status(doc_id)
-        if status.get("state") == "applied":
+        current_digest = status.get("currentDiskDigest")
+        applied_digest = status.get("lastAppliedDigest")
+        applied_new_digest = current_digest != before_digest and applied_digest == current_digest
+        if status.get("state") == "applied" and applied_new_digest:
             return {"installed": True, "state": "applied"}
         if status.get("state") == "error":
             raise RuntimeError(f"board script failed to apply: {status.get('lastApplyError')}")
