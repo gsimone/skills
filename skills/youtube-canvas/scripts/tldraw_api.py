@@ -9,6 +9,7 @@ import os
 import platform
 import shutil
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -156,17 +157,74 @@ def exec_doc(doc_id: str, code: str, timeout: int = 60) -> Any:
     return unwrap(request("POST", f"/api/doc/{encoded}/exec", {"code": code}, timeout=timeout))
 
 
-def save_doc_if_local(doc_id: str) -> bool:
+def document_info(doc_id: str) -> dict[str, Any]:
     docs = list_docs()
     if not isinstance(docs, list):
         raise RuntimeError(f"unexpected document-list response: {docs!r}")
     doc = next((item for item in docs if isinstance(item, dict) and item.get("id") == doc_id), None)
     if doc is None:
         raise RuntimeError(f"document was not found after rendering: {doc_id}")
-    if doc.get("ownership") != "local":
+    return doc
+
+
+def save_doc_if_local(doc_id: str) -> bool:
+    if document_info(doc_id).get("ownership") != "local":
         return False
     exec_doc(doc_id, "await helpers.saveDoc(); return true")
     return True
+
+
+def script_workspace(doc_id: str) -> dict[str, Any]:
+    encoded = urllib.parse.quote(doc_id, safe=":")
+    response = unwrap(request("POST", f"/api/doc/{encoded}/script-workspace", {}))
+    if not isinstance(response, dict):
+        raise RuntimeError(f"unexpected script-workspace response: {response!r}")
+    return response
+
+
+def script_status(doc_id: str) -> dict[str, Any]:
+    encoded = urllib.parse.quote(doc_id, safe=":")
+    response = unwrap(request("GET", f"/api/doc/{encoded}/script-status"))
+    if not isinstance(response, dict):
+        raise RuntimeError(f"unexpected script-status response: {response!r}")
+    return response
+
+
+def install_board_script(doc_id: str, source_dir: Path, timeout: float = 10) -> dict[str, Any]:
+    if document_info(doc_id).get("ownership") != "local":
+        return {"installed": False, "reason": "document is not locally owned"}
+
+    workspace = script_workspace(doc_id)
+    main_path = Path(str(workspace.get("mainJsPath") or ""))
+    script_dir = Path(str(workspace.get("scriptDir") or ""))
+    if not main_path.is_file() or not script_dir.is_dir():
+        raise RuntimeError(f"script workspace returned invalid paths: {workspace!r}")
+
+    managed_marker = "youtube-canvas-managed-board-script"
+    existing_main = main_path.read_text(encoding="utf-8")
+    existing_siblings = [path for path in script_dir.iterdir() if path.name != main_path.name]
+    is_managed = managed_marker in existing_main
+    is_untouched_default = workspace.get("isDefaultScript") and not existing_siblings
+    if not is_managed and not is_untouched_default:
+        return {"installed": False, "reason": "document already has an unrelated board script"}
+
+    filenames = ("youtubePlayer.js", "config.js", "main.js")
+    for filename in filenames:
+        source = source_dir / filename
+        if not source.is_file():
+            raise RuntimeError(f"missing board-script source: {source}")
+        shutil.copyfile(source, script_dir / filename)
+
+    deadline = time.monotonic() + timeout
+    status: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        status = script_status(doc_id)
+        if status.get("state") == "applied":
+            return {"installed": True, "state": "applied"}
+        if status.get("state") == "error":
+            raise RuntimeError(f"board script failed to apply: {status.get('lastApplyError')}")
+        time.sleep(0.2)
+    raise RuntimeError(f"board script did not apply before timeout: {status!r}")
 
 
 def screenshot(doc_id: str) -> Any:

@@ -38,6 +38,56 @@ class TldrawApiTests(unittest.TestCase):
             "await helpers.saveDoc(); return true",
         )
 
+    def test_install_board_script(self) -> None:
+        source_dir = ROOT / "scripts" / "board_script"
+        with tempfile.TemporaryDirectory() as td:
+            script_dir = Path(td) / "script"
+            script_dir.mkdir()
+            main_path = script_dir / "main.js"
+            main_path.write_text("// default")
+            workspace = {
+                "scriptDir": str(script_dir),
+                "mainJsPath": str(main_path),
+                "isDefaultScript": True,
+            }
+            with patch(
+                "tldraw_api.document_info", return_value={"ownership": "local"}
+            ), patch(
+                "tldraw_api.script_workspace", return_value=workspace
+            ), patch(
+                "tldraw_api.script_status", return_value={"state": "applied"}
+            ):
+                result = tldraw_api.install_board_script("tldr:file:abc", source_dir)
+
+            self.assertEqual(result, {"installed": True, "state": "applied"})
+            self.assertIn("youtube-canvas-managed-board-script", main_path.read_text())
+            self.assertTrue((script_dir / "config.js").is_file())
+            self.assertTrue((script_dir / "youtubePlayer.js").is_file())
+
+    def test_install_board_script_preserves_unrelated_script(self) -> None:
+        source_dir = ROOT / "scripts" / "board_script"
+        with tempfile.TemporaryDirectory() as td:
+            script_dir = Path(td) / "script"
+            script_dir.mkdir()
+            main_path = script_dir / "main.js"
+            main_path.write_text("// user's script")
+            workspace = {
+                "scriptDir": str(script_dir),
+                "mainJsPath": str(main_path),
+                "isDefaultScript": False,
+            }
+            with patch(
+                "tldraw_api.document_info", return_value={"ownership": "local"}
+            ), patch("tldraw_api.script_workspace", return_value=workspace):
+                result = tldraw_api.install_board_script("tldr:file:abc", source_dir)
+
+            self.assertEqual(
+                result,
+                {"installed": False, "reason": "document already has an unrelated board script"},
+            )
+            self.assertEqual(main_path.read_text(), "// user's script")
+            self.assertFalse((script_dir / "config.js").exists())
+
 
 class VttTests(unittest.TestCase):
     def test_parse_and_reduce_rolling_captions(self) -> None:
@@ -153,6 +203,8 @@ class RendererTests(unittest.TestCase):
         self.assertIn("oldAssets", js)
         self.assertIn("https://youtu.be/abc123xyz?t=5", js)
         self.assertIn("type: 'embed'", js)
+        self.assertIn("title: DATA.manifest.title", js)
+        self.assertIn("kind: 'source-link'", js)
         self.assertIn("seg.frames.entries()", js)
         self.assertNotIn("seg.frames[0]", js)
         self.assertIn('"imageH": 648', js)

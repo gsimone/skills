@@ -17,6 +17,7 @@ The canvas is a **research artifact**, not a transcript dump. Select the moments
 4. **Keep generated content replaceable.** The renderer tags generated shapes. Re-rendering removes only generated shapes for this video; human notes, arrows, drawings, and unrelated canvas content survive.
 5. **Use a small intermediate representation.** Analysis lives in `analysis.json`; canvas layout is deterministic.
 6. **Do not hand-edit `.tldraw` files.** Drive tldraw Offline through its local Canvas API.
+7. **Keep the source watchable.** Local canvases include a fixed, collapsible video player; timestamp buttons seek that player while separate links preserve the YouTube fallback.
 
 ## Requirements
 
@@ -130,7 +131,11 @@ The board should contain:
 - thematic cluster columns
 - timestamp-linked segment cards
 - representative screenshots where available
+- a fixed, collapsible video player that remains visible while panning and zooming
+- timestamp buttons that seek the fixed player, plus separate YouTube deep links
 - enough whitespace for human notes and arrows
+
+The renderer installs its managed board script into local documents. If an existing document already has an unrelated board script, it preserves that script and degrades to YouTube deep links rather than overwriting user behavior.
 
 ### 5. Verify
 
@@ -148,8 +153,10 @@ Check:
 - readable text at a normal zoom
 - timestamp links are present
 - screenshots correspond to the intended segment
+- clicking a timestamp button seeks and opens the fixed player at that segment
+- collapsing the player leaves a small **Watch** control
 - 2–6 clusters, not a 30-column mess
-- user-authored shapes remain after a re-render
+- user-authored shapes and unrelated board scripts remain after a re-render
 
 If layout is poor, change `analysis.json` grouping or renderer parameters and re-render. Do not manually patch dozens of coordinates.
 
@@ -207,6 +214,7 @@ Usually discard:
 - tldraw API unavailable: ask them to open tldraw Offline; do not edit `.tldraw` directly.
 - No captions: state that transcript extraction failed and use an already-installed local transcription option if available.
 - Canvas API schema mismatch: read `http://localhost:<port>/readme` through `tldraw_api.py readme`, adapt to the running app, and keep changes localized to the bridge/renderer.
+- Existing unrelated board script: preserve it, report that the fixed player was not installed, and keep the timestamp deep links functional.
 
 ## User-facing completion
 

@@ -14,11 +14,13 @@ from typing import Any
 
 # Import sibling bridge without requiring installation as a Python package.
 SCRIPT_DIR = Path(__file__).resolve().parent
+BOARD_SCRIPT_DIR = SCRIPT_DIR / "board_script"
 sys.path.insert(0, str(SCRIPT_DIR))
 from tldraw_api import (  # noqa: E402
     create_doc,
     exec_doc,
     focused_doc_id,
+    install_board_script,
     save_doc_if_local,
     screenshot,
 )
@@ -247,7 +249,7 @@ const addText = (id, x, y, w, text, opts={{}}) => {{
 shapes.push({{
   id: sid('player'), type: 'embed', x: DATA.layout.player.x, y: DATA.layout.player.y,
   props: {{ url: DATA.manifest.url, w: DATA.layout.player.w, h: DATA.layout.player.h }},
-  meta: marker('player'),
+  meta: marker('player', {{ title: DATA.manifest.title, url: DATA.manifest.url }}),
 }});
 addText(sid('title'), 0, -76, 1450, DATA.manifest.title, {{ size: 'xl', kind: 'title' }});
 const byline = [DATA.manifest.channel, DATA.manifest.duration ? `${{Math.floor(DATA.manifest.duration/60)}} min` : '', DATA.mode].filter(Boolean).join('  ·  ');
@@ -289,10 +291,14 @@ for (const [clusterIndex, cluster] of Object.keys(DATA.layout.clusters).entries(
     const baseId = sid('segment-bg', seg.id);
     addGeo(baseId, L.x, L.y, {card_w}, L.h, '', {{ fill: 'semi', color: 'grey', kind: 'segment', meta: {{ segmentId: seg.id, start: seg.start, end: seg.end, cluster }} }});
 
-    addText(sid('segment-title', seg.id), L.x + 20, L.y + 18, {card_w - 170}, seg.title, {{ size: 'm', kind: 'segment-title', meta: {{ segmentId: seg.id }} }});
-    addGeo(sid('timestamp', seg.id), L.x + {card_w - 134}, L.y + 14, 114, 42, seg.interval, {{
+    addText(sid('segment-title', seg.id), L.x + 20, L.y + 18, {card_w - 220}, seg.title, {{ size: 'm', kind: 'segment-title', meta: {{ segmentId: seg.id }} }});
+    addGeo(sid('timestamp', seg.id), L.x + {card_w - 174}, L.y + 14, 132, 42, `▶ ${{seg.interval}}`, {{
       color: 'blue', labelColor: 'blue', fill: 'none', size: 's', align: 'middle', verticalAlign: 'middle',
-      url: seg.url, kind: 'timestamp', meta: {{ segmentId: seg.id, start: seg.start }}
+      kind: 'timestamp', meta: {{ segmentId: seg.id, start: seg.start, title: seg.title }}
+    }});
+    addGeo(sid('source-link', seg.id), L.x + {card_w - 34}, L.y + 14, 22, 42, '↗', {{
+      color: 'blue', labelColor: 'blue', fill: 'none', size: 's', align: 'middle', verticalAlign: 'middle',
+      url: seg.url, kind: 'source-link', meta: {{ segmentId: seg.id, start: seg.start }}
     }});
 
     let cursorY = L.y + 76;
@@ -386,6 +392,10 @@ def main() -> None:
             )
         raise
 
+    try:
+        interactive_player = install_board_script(doc_id, BOARD_SCRIPT_DIR)
+    except RuntimeError as exc:
+        interactive_player = {"installed": False, "reason": str(exc)}
     saved = save_doc_if_local(doc_id)
     output: dict[str, Any] = {
         "ok": True,
@@ -393,6 +403,7 @@ def main() -> None:
         "created": created,
         "render": result,
         "saved": saved,
+        "interactivePlayer": interactive_player,
         "segments": len(data["segments"]),
         "clusters": len({s["cluster"] for s in data["segments"]}),
         "screenshots": count_frames(data),
