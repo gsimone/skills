@@ -15,7 +15,13 @@ from typing import Any
 # Import sibling bridge without requiring installation as a Python package.
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
-from tldraw_api import create_doc, exec_doc, focused_doc_id, screenshot  # noqa: E402
+from tldraw_api import (  # noqa: E402
+    create_doc,
+    exec_doc,
+    focused_doc_id,
+    save_doc_if_local,
+    screenshot,
+)
 
 
 def die(msg: str) -> None:
@@ -130,6 +136,10 @@ def enrich_analysis(analysis: dict[str, Any], manifest: dict[str, Any], frames: 
     return data
 
 
+def count_frames(data: dict[str, Any]) -> int:
+    return sum(len(segment["frames"]) for segment in data["segments"])
+
+
 def generate_js(data: dict[str, Any]) -> str:
     # Python computes most layout dimensions so JS stays a simple deterministic renderer.
     clusters: list[str] = []
@@ -160,7 +170,7 @@ def generate_js(data: dict[str, Any]) -> str:
         y = clusters_y + 62
         seg_layouts = []
         for seg in [s for s in data["segments"] if s["cluster"] == cluster]:
-            image_h = 310 if seg["frames"] else 0
+            image_h = 324 * len(seg["frames"])
             body_parts = [seg["summary"]]
             if seg["whyItMatters"]:
                 body_parts.append("Why it matters: " + seg["whyItMatters"])
@@ -286,15 +296,15 @@ for (const [clusterIndex, cluster] of Object.keys(DATA.layout.clusters).entries(
     }});
 
     let cursorY = L.y + 76;
-    if (seg.frames.length) {{
-      const frame = seg.frames[0];
-      const assetId = aid(`${{seg.id}}-0`);
+    for (const [frameIndex, frame] of seg.frames.entries()) {{
+      const frameKey = `${{seg.id}}-${{frameIndex}}`;
+      const assetId = aid(frameKey);
       shapes.push({{
-        id: sid('frame', seg.id), type: 'image', x: L.x + 20, y: cursorY,
+        id: sid('frame', frameKey), type: 'image', x: L.x + 20, y: cursorY,
         props: {{ assetId, w: {card_w - 40}, h: 287 }},
         meta: marker('frame', {{ segmentId: seg.id, timestamp: frame.timestamp, reason: frame.reason }}),
       }});
-      addText(sid('frame-caption', seg.id), L.x + 20, cursorY + 292, {card_w - 40}, `${{fmtTime(frame.timestamp)}} · ${{frame.reason}}`, {{ size: 's', color: 'grey', kind: 'frame-caption', meta: {{ segmentId: seg.id }} }});
+      addText(sid('frame-caption', frameKey), L.x + 20, cursorY + 292, {card_w - 40}, `${{fmtTime(frame.timestamp)}} · ${{frame.reason}}`, {{ size: 's', color: 'grey', kind: 'frame-caption', meta: {{ segmentId: seg.id }} }});
       cursorY += 324;
     }}
 
@@ -376,14 +386,16 @@ def main() -> None:
             )
         raise
 
+    saved = save_doc_if_local(doc_id)
     output: dict[str, Any] = {
         "ok": True,
         "docId": doc_id,
         "created": created,
         "render": result,
+        "saved": saved,
         "segments": len(data["segments"]),
         "clusters": len({s["cluster"] for s in data["segments"]}),
-        "screenshots": sum(1 for s in data["segments"] if s["frames"]),
+        "screenshots": count_frames(data),
     }
     if args.verify_screenshot:
         try:

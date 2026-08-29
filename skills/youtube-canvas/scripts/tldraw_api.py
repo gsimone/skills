@@ -152,8 +152,21 @@ def create_doc(name: str) -> dict[str, Any]:
 
 
 def exec_doc(doc_id: str, code: str, timeout: int = 60) -> Any:
-    encoded = urllib.parse.quote(doc_id, safe="")
+    encoded = urllib.parse.quote(doc_id, safe=":")
     return unwrap(request("POST", f"/api/doc/{encoded}/exec", {"code": code}, timeout=timeout))
+
+
+def save_doc_if_local(doc_id: str) -> bool:
+    docs = list_docs()
+    if not isinstance(docs, list):
+        raise RuntimeError(f"unexpected document-list response: {docs!r}")
+    doc = next((item for item in docs if isinstance(item, dict) and item.get("id") == doc_id), None)
+    if doc is None:
+        raise RuntimeError(f"document was not found after rendering: {doc_id}")
+    if doc.get("ownership") != "local":
+        return False
+    exec_doc(doc_id, "await helpers.saveDoc(); return true")
+    return True
 
 
 def screenshot(doc_id: str) -> Any:

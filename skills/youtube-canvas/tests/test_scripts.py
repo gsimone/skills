@@ -5,13 +5,38 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import render_canvas  # noqa: E402
+import tldraw_api  # noqa: E402
 import validate_analysis  # noqa: E402
 import youtube  # noqa: E402
+
+
+class TldrawApiTests(unittest.TestCase):
+    @patch("tldraw_api.request")
+    def test_exec_doc_preserves_colons_in_document_id(self, request: Mock) -> None:
+        request.return_value = {"result": True}
+        self.assertTrue(tldraw_api.exec_doc("tldr:file:abc", "return true"))
+        request.assert_called_once_with(
+            "POST",
+            "/api/doc/tldr:file:abc/exec",
+            {"code": "return true"},
+            timeout=60,
+        )
+
+    @patch("tldraw_api.exec_doc")
+    @patch("tldraw_api.list_docs")
+    def test_save_doc_if_local(self, list_docs: Mock, exec_doc: Mock) -> None:
+        list_docs.return_value = [{"id": "tldr:file:abc", "ownership": "local"}]
+        self.assertTrue(tldraw_api.save_doc_if_local("tldr:file:abc"))
+        exec_doc.assert_called_once_with(
+            "tldr:file:abc",
+            "await helpers.saveDoc(); return true",
+        )
 
 
 class VttTests(unittest.TestCase):
@@ -93,7 +118,10 @@ class RendererTests(unittest.TestCase):
                     "quote": "Quote",
                     "cluster": "Theme",
                     "tags": [],
-                    "visuals": [],
+                    "visuals": [
+                        {"timestamp": 6, "reason": "first diagram"},
+                        {"timestamp": 12, "reason": "second diagram"},
+                    ],
                 }
             ],
         }
@@ -104,13 +132,31 @@ class RendererTests(unittest.TestCase):
             "duration": 100,
             "url": "https://www.youtube.com/watch?v=abc123xyz",
         }
-        data = render_canvas.enrich_analysis(analysis, manifest, {})
+        frames = {
+            ("seg-001", 6): {
+                "timestamp": 6,
+                "reason": "first diagram",
+                "filename": "first.jpg",
+                "dataUri": "data:image/jpeg;base64,Zmlyc3Q=",
+            },
+            ("seg-001", 12): {
+                "timestamp": 12,
+                "reason": "second diagram",
+                "filename": "second.jpg",
+                "dataUri": "data:image/jpeg;base64,c2Vjb25k",
+            },
+        }
+        data = render_canvas.enrich_analysis(analysis, manifest, frames)
         js = render_canvas.generate_js(data)
         self.assertIn("youtubeCanvas", js)
         self.assertIn("oldShapes", js)
         self.assertIn("oldAssets", js)
         self.assertIn("https://youtu.be/abc123xyz?t=5", js)
         self.assertIn("type: 'embed'", js)
+        self.assertIn("seg.frames.entries()", js)
+        self.assertNotIn("seg.frames[0]", js)
+        self.assertIn('"imageH": 648', js)
+        self.assertEqual(render_canvas.count_frames(data), 2)
 
 
 if __name__ == "__main__":
