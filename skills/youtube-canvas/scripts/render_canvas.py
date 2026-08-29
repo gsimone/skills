@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import math
 import re
@@ -73,31 +72,7 @@ def text_height(text: str, width: int, *, base: int = 52, line_px: int = 26, min
     return max(min_h, min(max_h, base + lines * line_px))
 
 
-def load_frames(workdir: Path) -> dict[tuple[str, int], dict[str, Any]]:
-    path = workdir / "frames.json"
-    if not path.exists():
-        return {}
-    data = read_json(path)
-    result: dict[tuple[str, int], dict[str, Any]] = {}
-    for item in data.get("frames") or []:
-        seg = clean_text(item.get("segmentId"))
-        ts = int(round(float(item.get("timestamp", 0))))
-        frame_path = Path(item.get("path") or (workdir / "frames" / clean_text(item.get("filename"))))
-        if not frame_path.is_absolute():
-            frame_path = (workdir / frame_path).resolve()
-        if not frame_path.exists():
-            continue
-        raw = frame_path.read_bytes()
-        result[(seg, ts)] = {
-            "timestamp": float(item.get("timestamp", ts)),
-            "reason": clean_text(item.get("reason")),
-            "filename": frame_path.name,
-            "dataUri": "data:image/jpeg;base64," + base64.b64encode(raw).decode("ascii"),
-        }
-    return result
-
-
-def enrich_analysis(analysis: dict[str, Any], manifest: dict[str, Any], frames: dict[tuple[str, int], dict[str, Any]]) -> dict[str, Any]:
+def enrich_analysis(analysis: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
     data = {
         "manifest": {
             "videoId": clean_text(manifest.get("videoId")),
@@ -127,19 +102,9 @@ def enrich_analysis(analysis: dict[str, Any], manifest: dict[str, Any], frames: 
             "quote": clean_text(seg.get("quote")),
             "cluster": clean_text(seg.get("cluster")) or "Other",
             "tags": [clean_text(x) for x in seg.get("tags") or [] if clean_text(x)],
-            "frames": [],
         }
-        for visual in seg.get("visuals") or []:
-            ts = int(round(float(visual.get("timestamp", start))))
-            frame = frames.get((segment["id"], ts))
-            if frame:
-                segment["frames"].append(frame)
         data["segments"].append(segment)
     return data
-
-
-def count_frames(data: dict[str, Any]) -> int:
-    return sum(len(segment["frames"]) for segment in data["segments"])
 
 
 def generate_js(data: dict[str, Any]) -> str:
@@ -154,11 +119,11 @@ def generate_js(data: dict[str, Any]) -> str:
     card_w = 550
     left = 0
     header_y = 0
-    player_w = 720
-    player_h = 405
-    summary_x = 770
+    player_w = 360
+    player_h = 220
+    summary_x = 390
     summary_w = max(620, min(900, len(data["summary"]) * 2))
-    key_y = 465
+    key_y = 280
     key_w = 330
     key_gap = 22
     keys_per_row = 4
@@ -172,7 +137,6 @@ def generate_js(data: dict[str, Any]) -> str:
         y = clusters_y + 62
         seg_layouts = []
         for seg in [s for s in data["segments"] if s["cluster"] == cluster]:
-            image_h = 324 * len(seg["frames"])
             body_parts = [seg["summary"]]
             if seg["whyItMatters"]:
                 body_parts.append("Why it matters: " + seg["whyItMatters"])
@@ -181,8 +145,8 @@ def generate_js(data: dict[str, Any]) -> str:
             body = "\n\n".join(body_parts)
             body_h = text_height(body, card_w - 34, min_h=120, max_h=320)
             tag_h = 44 if seg["tags"] else 0
-            card_h = 86 + image_h + body_h + tag_h + 30
-            seg_layouts.append({"id": seg["id"], "x": x, "y": y, "h": card_h, "body": body, "bodyH": body_h, "imageH": image_h, "tagH": tag_h})
+            card_h = 86 + body_h + tag_h + 30
+            seg_layouts.append({"id": seg["id"], "x": x, "y": y, "h": card_h, "body": body, "bodyH": body_h, "tagH": tag_h})
             y += card_h + 34
         height = max(120, y - clusters_y)
         layouts[cluster] = {"x": x, "segments": seg_layouts, "height": height}
@@ -206,13 +170,11 @@ def generate_js(data: dict[str, Any]) -> str:
 
     return f"""
 const DATA = {payload};
-const {{ createShapeId, AssetRecordType, toRichText }} = await import('tldraw');
+const {{ createShapeId, toRichText }} = await import('tldraw');
 
 const videoId = DATA.manifest.videoId || 'youtube';
 const marker = (kind, extra={{}}) => ({{ youtubeCanvas: {{ generated: true, videoId, kind, ...extra }} }});
-const fmtTime = (seconds) => {{ const total=Math.max(0,Math.round(Number(seconds)||0)); const h=Math.floor(total/3600); const m=Math.floor((total%3600)/60); const s=total%60; return h ? `${{h}}:${{String(m).padStart(2,'0')}}:${{String(s).padStart(2,'0')}}` : `${{m}}:${{String(s).padStart(2,'0')}}`; }};
 const sid = (kind, key='') => createShapeId(`ytc-${{videoId}}-${{kind}}-${{key}}`);
-const aid = (key='') => AssetRecordType.createId(`ytc-${{videoId}}-${{key}}`);
 
 const oldShapes = editor.getCurrentPageShapes().filter(s => s.meta?.youtubeCanvas?.generated && s.meta.youtubeCanvas.videoId === videoId);
 if (oldShapes.length) editor.deleteShapes(oldShapes.map(s => s.id));
@@ -220,7 +182,6 @@ const oldAssets = editor.getAssets().filter(a => a.meta?.youtubeCanvas?.generate
 if (oldAssets.length) editor.deleteAssets(oldAssets.map(a => a.id));
 
 const shapes = [];
-const assets = [];
 const addGeo = (id, x, y, w, h, text, opts={{}}) => {{
   shapes.push({{
     id, type: 'geo', x, y,
@@ -245,15 +206,15 @@ const addText = (id, x, y, w, text, opts={{}}) => {{
   }});
 }};
 
-// Source / player
-shapes.push({{
-  id: sid('player'), type: 'embed', x: DATA.layout.player.x, y: DATA.layout.player.y,
-  props: {{ url: DATA.manifest.url, w: DATA.layout.player.w, h: DATA.layout.player.h }},
-  meta: marker('player', {{ title: DATA.manifest.title, url: DATA.manifest.url }}),
-}});
+// Compact source area. Video playback stays in the fixed viewport player.
 addText(sid('title'), 0, -76, 1450, DATA.manifest.title, {{ size: 'xl', kind: 'title' }});
 const byline = [DATA.manifest.channel, DATA.manifest.duration ? `${{Math.floor(DATA.manifest.duration/60)}} min` : '', DATA.mode].filter(Boolean).join('  ·  ');
 addText(sid('byline'), 0, -34, 1200, byline, {{ size: 's', color: 'grey', kind: 'byline' }});
+const sourceLabel = ['VIDEO SOURCE', DATA.manifest.channel, 'Open on YouTube ↗'].filter(Boolean).join('\\n\\n');
+addGeo(sid('source-card'), DATA.layout.player.x, DATA.layout.player.y, DATA.layout.player.w, DATA.layout.player.h, sourceLabel, {{
+  url: DATA.manifest.url, fill: 'semi', color: 'blue', size: 's', kind: 'player',
+  meta: {{ title: DATA.manifest.title, url: DATA.manifest.url }}
+}});
 addGeo(sid('summary'), DATA.layout.summary.x, DATA.layout.summary.y, DATA.layout.summary.w, DATA.layout.summary.h, `SUMMARY\n\n${{DATA.summary}}`, {{ fill: 'semi', color: 'grey', size: 's', kind: 'summary' }});
 
 // Key ideas
@@ -265,22 +226,6 @@ DATA.keyIdeas.forEach((idea, i) => {{
   const y = DATA.layout.keyY + row * 128;
   addGeo(sid('key', String(i)), x, y, DATA.layout.keyW, 104, idea, {{ fill: 'semi', color: 'grey', kind: 'key-idea', meta: {{ index: i }} }});
 }});
-
-// Segment assets first so shapes can reference them.
-for (const seg of DATA.segments) {{
-  seg.frames.forEach((frame, i) => {{
-    const id = aid(`${{seg.id}}-${{i}}`);
-    assets.push({{
-      id, type: 'image', typeName: 'asset',
-      props: {{
-        name: frame.filename || `${{seg.id}}.jpg`, src: frame.dataUri,
-        w: 720, h: 405, mimeType: 'image/jpeg', isAnimated: false,
-      }},
-      meta: marker('frame-asset', {{ segmentId: seg.id, timestamp: frame.timestamp }}),
-    }});
-  }});
-}}
-if (assets.length) editor.createAssets(assets);
 
 for (const [clusterIndex, cluster] of Object.keys(DATA.layout.clusters).entries()) {{
   const cl = DATA.layout.clusters[cluster];
@@ -302,18 +247,6 @@ for (const [clusterIndex, cluster] of Object.keys(DATA.layout.clusters).entries(
     }});
 
     let cursorY = L.y + 76;
-    for (const [frameIndex, frame] of seg.frames.entries()) {{
-      const frameKey = `${{seg.id}}-${{frameIndex}}`;
-      const assetId = aid(frameKey);
-      shapes.push({{
-        id: sid('frame', frameKey), type: 'image', x: L.x + 20, y: cursorY,
-        props: {{ assetId, w: {card_w - 40}, h: 287 }},
-        meta: marker('frame', {{ segmentId: seg.id, timestamp: frame.timestamp, reason: frame.reason }}),
-      }});
-      addText(sid('frame-caption', frameKey), L.x + 20, cursorY + 292, {card_w - 40}, `${{fmtTime(frame.timestamp)}} · ${{frame.reason}}`, {{ size: 's', color: 'grey', kind: 'frame-caption', meta: {{ segmentId: seg.id }} }});
-      cursorY += 324;
-    }}
-
     addGeo(sid('segment-body', seg.id), L.x + 20, cursorY, {card_w - 40}, L.bodyH, L.body, {{ fill: 'none', color: 'grey', dash: 'none', size: 's', kind: 'segment-body', meta: {{ segmentId: seg.id }} }});
     cursorY += L.bodyH + 8;
     if (seg.tags.length) {{
@@ -328,7 +261,6 @@ editor.zoomToFit();
 return {{
   videoId,
   generatedShapes: shapes.length,
-  generatedAssets: assets.length,
   clusters: Object.keys(DATA.layout.clusters).length,
   segments: DATA.segments.length,
 }};
@@ -371,8 +303,7 @@ def main() -> None:
     if not isinstance(analysis, dict) or not isinstance(manifest, dict):
         die("analysis and manifest must be JSON objects")
 
-    frames = load_frames(workdir)
-    data = enrich_analysis(analysis, manifest, frames)
+    data = enrich_analysis(analysis, manifest)
     if not data["segments"]:
         die("analysis contains no segments")
 
@@ -406,7 +337,6 @@ def main() -> None:
         "interactivePlayer": interactive_player,
         "segments": len(data["segments"]),
         "clusters": len({s["cluster"] for s in data["segments"]}),
-        "screenshots": count_frames(data),
     }
     if args.verify_screenshot:
         try:

@@ -28,6 +28,12 @@ class TldrawApiTests(unittest.TestCase):
             timeout=60,
         )
 
+    @patch("tldraw_api.request")
+    def test_exec_doc_raises_for_execution_error(self, request: Mock) -> None:
+        request.return_value = {"result": {"success": False, "error": "broken script"}}
+        with self.assertRaisesRegex(RuntimeError, "broken script"):
+            tldraw_api.exec_doc("tldr:file:abc", "invalid")
+
     @patch("tldraw_api.exec_doc")
     @patch("tldraw_api.list_docs")
     def test_save_doc_if_local(self, list_docs: Mock, exec_doc: Mock) -> None:
@@ -139,7 +145,6 @@ class AnalysisTests(unittest.TestCase):
                     "title": "A",
                     "summary": "B",
                     "cluster": "C",
-                    "visuals": [{"timestamp": 4, "reason": "diagram"}],
                 }
             ],
         }
@@ -180,10 +185,6 @@ class RendererTests(unittest.TestCase):
                     "quote": "Quote",
                     "cluster": "Theme",
                     "tags": [],
-                    "visuals": [
-                        {"timestamp": 6, "reason": "first diagram"},
-                        {"timestamp": 12, "reason": "second diagram"},
-                    ],
                 }
             ],
         }
@@ -194,33 +195,19 @@ class RendererTests(unittest.TestCase):
             "duration": 100,
             "url": "https://www.youtube.com/watch?v=abc123xyz",
         }
-        frames = {
-            ("seg-001", 6): {
-                "timestamp": 6,
-                "reason": "first diagram",
-                "filename": "first.jpg",
-                "dataUri": "data:image/jpeg;base64,Zmlyc3Q=",
-            },
-            ("seg-001", 12): {
-                "timestamp": 12,
-                "reason": "second diagram",
-                "filename": "second.jpg",
-                "dataUri": "data:image/jpeg;base64,c2Vjb25k",
-            },
-        }
-        data = render_canvas.enrich_analysis(analysis, manifest, frames)
+        data = render_canvas.enrich_analysis(analysis, manifest)
         js = render_canvas.generate_js(data)
         self.assertIn("youtubeCanvas", js)
         self.assertIn("oldShapes", js)
         self.assertIn("oldAssets", js)
         self.assertIn("https://youtu.be/abc123xyz?t=5", js)
-        self.assertIn("type: 'embed'", js)
+        self.assertNotIn("type: 'embed'", js)
+        self.assertIn("VIDEO SOURCE", js)
+        self.assertIn("join('\\n\\n')", js)
         self.assertIn("title: DATA.manifest.title", js)
         self.assertIn("kind: 'source-link'", js)
-        self.assertIn("seg.frames.entries()", js)
-        self.assertNotIn("seg.frames[0]", js)
-        self.assertIn('"imageH": 648', js)
-        self.assertEqual(render_canvas.count_frames(data), 2)
+        self.assertNotIn("frame-asset", js)
+        self.assertNotIn("AssetRecordType", js)
 
 
 if __name__ == "__main__":

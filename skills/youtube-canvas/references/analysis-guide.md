@@ -17,7 +17,6 @@ Default for talks, lectures, interviews, technical explanations, design reviews,
 - 8–20 segments for roughly 45–150 minutes
 - 2–6 clusters
 - richer summaries
-- high-value screenshots only
 - favor relationships and synthesis over chronology
 
 ### Watch mode
@@ -27,7 +26,6 @@ Use when the user wants dense notes while preserving more of the video's progres
 - roughly 1 segment per 3–8 useful minutes, not uniform sampling
 - short summaries
 - more timestamps
-- more screenshots when the screen changes materially
 - chronology matters more than thematic compression
 
 ## Segment selection
@@ -47,31 +45,6 @@ Prefer moments containing:
 - strong conclusion or synthesis
 
 Avoid splitting one continuous idea into several cards unless each sub-part has independent revisit value.
-
-## Visual frame selection
-
-Set `visuals[].timestamp` only where a frame is likely to carry useful information.
-
-Good candidates:
-
-- diagrams
-- code
-- UI demonstrations
-- plots/charts
-- tables
-- dense slides
-- before/after states
-- visual examples discussed verbally
-
-Bad candidates:
-
-- speaker close-up
-- repeated slide
-- transition animation
-- sponsor card
-- decorative B-roll
-
-Use `reason` to tell the later frame extraction / review pass what information should be visible.
 
 ## Clusters
 

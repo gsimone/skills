@@ -1,6 +1,6 @@
 ---
 name: youtube-canvas
-description: Turn long YouTube videos into editable tldraw Offline research canvases with timestamped extracts, summaries, representative video frames, thematic grouping, and room for human notes. Use when the user asks to study, summarize, map, dissect, annotate, or make a spatial canvas/notebook from a YouTube video, talk, interview, lecture, podcast, demo, or conference recording. Also use when they want timestamp-linked visual notes rather than a linear transcript.
+description: Turn long YouTube videos into editable tldraw Offline research canvases with timestamped extracts, summaries, thematic grouping, an interactive player, and room for human notes. Use when the user asks to study, summarize, map, dissect, annotate, or make a spatial canvas/notebook from a YouTube video, talk, interview, lecture, podcast, demo, or conference recording. Also use when they want timestamp-linked spatial notes rather than a linear transcript.
 ---
 
 # YouTube → tldraw research canvas
@@ -13,7 +13,7 @@ The canvas is a **research artifact**, not a transcript dump. Select the moments
 
 1. **Preserve provenance.** Every generated extract must retain an exact YouTube timestamp link.
 2. **Prefer information density over coverage.** Do not create one card every N minutes.
-3. **Use the visual channel.** For code, diagrams, slides, demos, or charts, keep representative frames when they carry information the transcript does not.
+3. **Keep the board navigable.** Use thematic grouping, compact text cards, whitespace, and the interactive player.
 4. **Keep generated content replaceable.** The renderer tags generated shapes. Re-rendering removes only generated shapes for this video; human notes, arrows, drawings, and unrelated canvas content survive.
 5. **Use a small intermediate representation.** Analysis lives in `analysis.json`; canvas layout is deterministic.
 6. **Do not hand-edit `.tldraw` files.** Drive tldraw Offline through its local Canvas API.
@@ -23,7 +23,6 @@ The canvas is a **research artifact**, not a transcript dump. Select the moments
 
 - `python3`
 - `yt-dlp`
-- `ffmpeg` + `ffprobe`
 - tldraw Offline **v1.12+**, running locally
 - Recommended: in tldraw Offline, run **Develop → Install Agent Skills** once so the host agent also has tldraw's version-matched canvas instructions.
 
@@ -79,28 +78,10 @@ Default research target:
 - 8–20 segments for a 45–150 minute video
 - 2–6 thematic clusters
 - 5–12 key ideas
-- 0–2 candidate visual frames per segment
-- no more than ~18 visual frames total unless the user explicitly wants dense watch notes
 
 For `watch` mode, increase segment density and reduce prose. For `research` mode, favor synthesis and thematic grouping.
 
-### 3. Extract only useful visual frames
-
-Only do this after semantic analysis has identified useful timestamps.
-
-```bash
-python3 "$SKILL_DIR/scripts/youtube.py" frames \
-  "<workdir>/analysis.json" \
-  --manifest "<workdir>/manifest.json" \
-  --out "<workdir>" \
-  --max-frames 18
-```
-
-The script downloads a low-resolution video stream once, extracts selected JPEGs, and writes `frames.json`.
-
-Skip frames that are just a talking head, title card, or redundant slide unless that image is itself useful context.
-
-### 4. Render the canvas
+### 3. Render the canvas
 
 Create a new tldraw Offline document by default:
 
@@ -125,19 +106,18 @@ Never silently fall back from `--new` to an existing focused document.
 
 The board should contain:
 
-- source/title/player area
+- compact source/title area with a YouTube link
 - concise overall summary
 - key ideas
 - thematic cluster columns
 - timestamp-linked segment cards
-- representative screenshots where available
 - a fixed video player that remains visible while panning and zooming, moves by dragging its header, resizes from the **↔** header control, and collapses to **Watch**
 - timestamp buttons that seek the fixed player, plus separate YouTube deep links
 - enough whitespace for human notes and arrows
 
 The renderer installs its managed board script into local documents. If an existing document already has an unrelated board script, it preserves that script and degrades to YouTube deep links rather than overwriting user behavior.
 
-### 5. Verify
+### 4. Verify
 
 After rendering:
 
@@ -152,7 +132,6 @@ Check:
 - no obvious overlap
 - readable text at a normal zoom
 - timestamp links are present
-- screenshots correspond to the intended segment
 - clicking a timestamp button seeks and opens the fixed player at that segment
 - dragging the player header moves it within the window and dragging the **↔** header control resizes it
 - collapsing the player leaves a small **Watch** control
@@ -199,19 +178,17 @@ Usually discard:
 - repeated framing
 - anecdotes that add no explanatory value
 - long stretches whose only value is already captured by a neighboring segment
-- generic talking-head frames
+- generic talking-head filler
 
 ## Timestamp rules
 
 - `start` and `end` are seconds from video start.
 - Deep links use the exact `start` second.
 - Use an interval when the idea spans time; do not pretend everything is a single instant.
-- A visual frame may use a timestamp inside the segment rather than exactly at `start`.
 
 ## Failure handling
 
 - Missing `yt-dlp`: tell the user `brew install yt-dlp` on macOS.
-- Missing `ffmpeg`: tell the user `brew install ffmpeg` on macOS.
 - tldraw API unavailable: ask them to open tldraw Offline; do not edit `.tldraw` directly.
 - No captions: state that transcript extraction failed and use an already-installed local transcription option if available.
 - Canvas API schema mismatch: read `http://localhost:<port>/readme` through `tldraw_api.py readme`, adapt to the running app, and keep changes localized to the bridge/renderer.
@@ -222,7 +199,7 @@ Usually discard:
 When done, report:
 
 - canvas file path / document name
-- number of clusters, segments, and screenshots
-- any degraded behavior (for example: no captions or no visual frames)
+- number of clusters and segments
+- any degraded behavior (for example: no captions or no interactive player)
 
 Do not paste the entire transcript or analysis into chat unless requested.

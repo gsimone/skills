@@ -30,19 +30,6 @@
             "type": "array",
             "items": { "type": "string" },
             "maxItems": 8
-          },
-          "visuals": {
-            "type": "array",
-            "maxItems": 3,
-            "items": {
-              "type": "object",
-              "required": ["timestamp", "reason"],
-              "properties": {
-                "timestamp": { "type": "number", "minimum": 0 },
-                "reason": { "type": "string", "minLength": 1 }
-              },
-              "additionalProperties": false
-            }
           }
         },
         "additionalProperties": false

@@ -16,13 +16,7 @@
       "whyItMatters": "This changes what should be measured and where a migration boundary belongs.",
       "quote": "Imports are not ownership.",
       "cluster": "Architecture model",
-      "tags": ["ownership", "runtime"],
-      "visuals": [
-        {
-          "timestamp": 184,
-          "reason": "architecture diagram showing the shared runtime boundary"
-        }
-      ]
+      "tags": ["ownership", "runtime"]
     }
   ]
 }

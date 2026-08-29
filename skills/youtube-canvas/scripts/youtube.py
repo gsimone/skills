@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """YouTube ingestion helpers for the youtube-canvas Agent Skill.
 
-External requirements: yt-dlp, ffmpeg, ffprobe.
+External requirement: yt-dlp.
 Python dependencies: stdlib only.
 """
 
@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import html
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -303,7 +302,6 @@ def command_prepare(args: argparse.Namespace) -> None:
         "uploadDate": meta.get("upload_date"),
         "description": meta.get("description"),
         "url": meta.get("webpage_url") or args.url,
-        "thumbnail": meta.get("thumbnail"),
         "chapters": meta.get("chapters") or [],
         "languageRequested": args.language,
     }
@@ -325,7 +323,7 @@ def command_prepare(args: argparse.Namespace) -> None:
     download_url(str(fmt["url"]), caption_path)
 
     if fmt.get("ext") != "vtt":
-        # Let ffmpeg/yt-dlp handle unusual tracks only if necessary. The common path is VTT.
+        # The common path is VTT; unusual caption formats are not normalized here.
         die(
             f"selected captions are {fmt.get('ext')!r}, not VTT. "
             "Re-run with a language that has VTT captions or extend youtube.py for this caption format."
@@ -361,131 +359,8 @@ def command_prepare(args: argparse.Namespace) -> None:
     }, indent=2))
 
 
-def safe_slug(value: str) -> str:
-    value = value.strip().lower()
-    value = re.sub(r"[^a-z0-9]+", "-", value)
-    return value.strip("-")[:60] or "frame"
-
-
-def choose_video_file(outdir: Path) -> Path | None:
-    candidates = []
-    for p in outdir.glob("source-video.*"):
-        if p.suffix.lower() in {".part", ".ytdl", ".json"}:
-            continue
-        candidates.append(p)
-    return max(candidates, key=lambda p: p.stat().st_size) if candidates else None
-
-
-def download_lowres_video(url: str, outdir: Path) -> Path:
-    require_bin("yt-dlp")
-    existing = choose_video_file(outdir)
-    if existing:
-        return existing
-
-    template = str(outdir / "source-video.%(ext)s")
-    # Video-only is enough for screenshots. Prefer <=480p, then best available fallback.
-    run([
-        "yt-dlp",
-        "--no-warnings",
-        "--no-playlist",
-        "-f",
-        "bestvideo[height<=480]/best[height<=480]/worst",
-        "-o",
-        template,
-        url,
-    ], capture=False)
-    found = choose_video_file(outdir)
-    if not found:
-        die("yt-dlp completed but no downloaded video file was found")
-    return found
-
-
-def ffprobe_dimensions(video: Path) -> tuple[int, int] | None:
-    require_bin("ffprobe")
-    proc = run([
-        "ffprobe", "-v", "error", "-select_streams", "v:0",
-        "-show_entries", "stream=width,height", "-of", "json", str(video)
-    ])
-    try:
-        streams = json.loads(proc.stdout).get("streams") or []
-        if streams:
-            return int(streams[0]["width"]), int(streams[0]["height"])
-    except Exception:  # noqa: BLE001
-        return None
-    return None
-
-
-def collect_visual_candidates(analysis: dict[str, Any], max_frames: int) -> list[dict[str, Any]]:
-    candidates: list[dict[str, Any]] = []
-    seen: set[int] = set()
-    for segment in analysis.get("segments") or []:
-        for visual in segment.get("visuals") or []:
-            ts = float(visual.get("timestamp", segment.get("start", 0)))
-            rounded = int(round(ts))
-            if rounded in seen:
-                continue
-            seen.add(rounded)
-            candidates.append({
-                "segmentId": segment.get("id"),
-                "timestamp": ts,
-                "reason": visual.get("reason") or "representative visual",
-            })
-            if len(candidates) >= max_frames:
-                return candidates
-    return candidates
-
-
-def command_frames(args: argparse.Namespace) -> None:
-    analysis_path = Path(args.analysis).expanduser().resolve()
-    manifest_path = Path(args.manifest).expanduser().resolve()
-    outdir = Path(args.out).expanduser().resolve()
-    if not analysis_path.exists():
-        die(f"analysis not found: {analysis_path}")
-    if not manifest_path.exists():
-        die(f"manifest not found: {manifest_path}")
-    analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    candidates = collect_visual_candidates(analysis, args.max_frames)
-
-    frames_dir = outdir / "frames"
-    frames_dir.mkdir(parents=True, exist_ok=True)
-    if not candidates:
-        json_dump(outdir / "frames.json", {"video": None, "frames": []})
-        print(json.dumps({"ok": True, "frames": 0, "message": "analysis requested no visual frames"}, indent=2))
-        return
-
-    require_bin("ffmpeg")
-    video = download_lowres_video(str(manifest.get("url")), outdir)
-    dims = ffprobe_dimensions(video)
-    extracted: list[dict[str, Any]] = []
-
-    for index, item in enumerate(candidates):
-        ts = max(0.0, float(item["timestamp"]))
-        filename = f"{index:03d}_{safe_slug(str(item.get('segmentId') or 'segment'))}_{int(round(ts)):06d}.jpg"
-        dest = frames_dir / filename
-        cmd = [
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-            "-ss", f"{ts:.3f}", "-i", str(video),
-            "-frames:v", "1",
-            "-vf", "scale='min(720,iw)':-2",
-            "-q:v", "4",
-            str(dest),
-        ]
-        # shell quoting is not needed with subprocess; ffmpeg accepts this scale expression as-is.
-        run(cmd, capture=True)
-        extracted.append({**item, "path": str(dest), "filename": filename})
-
-    result = {
-        "video": str(video),
-        "sourceDimensions": {"w": dims[0], "h": dims[1]} if dims else None,
-        "frames": extracted,
-    }
-    json_dump(outdir / "frames.json", result)
-    print(json.dumps({"ok": True, "frames": len(extracted), "video": str(video)}, indent=2))
-
-
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="YouTube preparation and visual frame extraction")
+    parser = argparse.ArgumentParser(description="YouTube transcript preparation")
     sub = parser.add_subparsers(dest="command", required=True)
 
     prepare = sub.add_parser("prepare", help="fetch metadata/captions and create timestamped transcript chunks")
@@ -494,13 +369,6 @@ def build_parser() -> argparse.ArgumentParser:
     prepare.add_argument("--language", default="en")
     prepare.add_argument("--chunk-minutes", type=int, default=12)
     prepare.set_defaults(func=command_prepare)
-
-    frames = sub.add_parser("frames", help="extract frames requested by analysis.json")
-    frames.add_argument("analysis")
-    frames.add_argument("--manifest", required=True)
-    frames.add_argument("--out", required=True)
-    frames.add_argument("--max-frames", type=int, default=18)
-    frames.set_defaults(func=command_frames)
     return parser
 
 

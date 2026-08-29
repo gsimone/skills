@@ -6,7 +6,7 @@
 | [contact-sheet](./skills/contact-sheet/SKILL.md) | Turns a video into unique frames, a difference timeline, and contact sheets for visual analysis. |
 | [github-pr-fastpath](./skills/github-pr-fastpath/SKILL.md) | Resolves a GitHub PR URL directly and inspects it with `gh` without searching. |
 | [stacked-prs](./skills/stacked-prs/SKILL.md) | Keeps a concise, marked summary synchronized across every PR in a native GitHub stack. |
-| [youtube-canvas](./skills/youtube-canvas/SKILL.md) | Turns long YouTube videos into editable tldraw Offline research canvases with a movable picture-in-picture player, seekable timestamps, and selected frames. |
+| [youtube-canvas](./skills/youtube-canvas/SKILL.md) | Turns long YouTube videos into editable tldraw Offline research canvases with a movable picture-in-picture player, seekable timestamps, and thematic notes. |
 
 ## Install
 

@@ -154,7 +154,10 @@ def create_doc(name: str) -> dict[str, Any]:
 
 def exec_doc(doc_id: str, code: str, timeout: int = 60) -> Any:
     encoded = urllib.parse.quote(doc_id, safe=":")
-    return unwrap(request("POST", f"/api/doc/{encoded}/exec", {"code": code}, timeout=timeout))
+    result = unwrap(request("POST", f"/api/doc/{encoded}/exec", {"code": code}, timeout=timeout))
+    if isinstance(result, dict) and result.get("success") is False:
+        raise RuntimeError(f"tldraw document execution failed: {result.get('error')}")
+    return result
 
 
 def document_info(doc_id: str) -> dict[str, Any]:
@@ -264,8 +267,6 @@ def command_doctor(_: argparse.Namespace) -> None:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "yt-dlp": shutil.which("yt-dlp"),
-        "ffmpeg": shutil.which("ffmpeg"),
-        "ffprobe": shutil.which("ffprobe"),
     }
     try:
         server = load_server()
@@ -280,7 +281,7 @@ def command_doctor(_: argparse.Namespace) -> None:
     except Exception as exc:  # noqa: BLE001
         status["tldraw"] = {"reachable": False, "error": str(exc)}
 
-    missing = [name for name in ("yt-dlp", "ffmpeg", "ffprobe") if not status[name]]
+    missing = [name for name in ("yt-dlp",) if not status[name]]
     ok = not missing and bool(status["tldraw"].get("reachable"))
     status["ok"] = ok
     if missing:

@@ -63,28 +63,6 @@ def validate(data: dict[str, Any], duration: float | None = None) -> list[str]:
         except (TypeError, ValueError):
             errors.append(f"{prefix}.start/end must be numbers")
 
-        visuals = seg.get("visuals", [])
-        if visuals is None:
-            visuals = []
-        if not isinstance(visuals, list):
-            errors.append(f"{prefix}.visuals must be an array")
-            continue
-        if len(visuals) > 3:
-            errors.append(f"{prefix}.visuals has {len(visuals)} entries; max is 3")
-        for j, visual in enumerate(visuals):
-            vp = f"{prefix}.visuals[{j}]"
-            if not isinstance(visual, dict):
-                errors.append(f"{vp} must be an object")
-                continue
-            try:
-                ts = float(visual.get("timestamp"))
-                if duration and ts > duration + 2:
-                    errors.append(f"{vp}.timestamp exceeds video duration")
-            except (TypeError, ValueError):
-                errors.append(f"{vp}.timestamp must be a number")
-            if not isinstance(visual.get("reason"), str) or not visual["reason"].strip():
-                errors.append(f"{vp}.reason must be a non-empty string")
-
     if starts != sorted(starts):
         errors.append("segments must be ordered chronologically by start")
     if len(clusters) > 8:
@@ -111,13 +89,11 @@ def main() -> None:
     if errors:
         fail(errors)
     clusters = sorted({seg.get("cluster") for seg in data["segments"] if seg.get("cluster")})
-    visuals = sum(len(seg.get("visuals") or []) for seg in data["segments"])
     print(json.dumps({
         "ok": True,
         "mode": data.get("mode"),
         "segments": len(data["segments"]),
         "clusters": len(clusters),
-        "visualCandidates": visuals,
     }, indent=2))
 
 
