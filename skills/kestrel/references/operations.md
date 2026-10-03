@@ -2,13 +2,14 @@
 
 ## Model profiles
 
-Use the user's request, then house rules or effort profiles, then these defaults
-carried over from Hawk:
+Use the user's request, then house rules or effort profiles, then the defaults
+below. Default workers to Opus and reviewers to Sol. Sol is also available for
+workers when requested or selected in the effort profile.
 
-| Work | Provider and model | Options |
+| Profile | Provider and model | Options |
 | --- | --- | --- |
-| Workers | `claudeAgent`, `claude-opus-5-5` | `effort: "high"` |
-| Review | `codex`, `gpt-6.1-sol` | `reasoningEffort: "high"`, `serviceTier: "default"` |
+| Opus | `claudeAgent`, `claude-opus-5-5` | `effort: "high"` |
+| Sol | `codex`, `gpt-6.1-sol` | `reasoningEffort: "high"`, `serviceTier: "default"` |
 
 Validate every choice against `orchestrator_capabilities`. Use a provider with
 `canRunChildTask`, and for cross-provider work also `canRunCrossProviderChildTask`.
@@ -107,7 +108,7 @@ When the user says they are leaving, AFK, or running low on usage:
 3. Let asynchronous delegated completions return through T3. For usage limits,
    use T3's resume-at-reset control when available. AFK alone does not request
    a recurring schedule; use [Recurring work](#recurring-work) only when the
-   user has requested continued checks. Do not recreate Hawk's detached timers.
+   user has requested continued checks.
 
 On return or a scheduled check, reconcile the ledger with live runs, queues,
 pending requests, and every open PR's CI, conflicts, and reviews. Resume only
@@ -166,14 +167,3 @@ For a user-requested takeover:
    schedules have moved. Archive only after all original deliveries are drained;
    archiving earlier can drop them. Forking preserves context; it does not
    reparent tasks or merge code.
-
-## Existing Hawk efforts
-
-Reuse house rules and `handoff.md`. Recover issue, repository, worker, reviewer,
-and preferred-model mappings from `effort.json`, checking models against the
-live catalog. Read workers and PRs for current state; Hawk's snapshots and event
-logs describe earlier observations.
-
-For a migration, identify the effort's legacy watchers and pending deliveries
-before stopping its helpers. Preserve unrelated processes and worker runs.
-Editing or installing Kestrel leaves live Hawk efforts running until migrated.

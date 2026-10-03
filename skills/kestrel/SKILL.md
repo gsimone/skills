@@ -13,7 +13,8 @@ in the coordinator only when the user asks.
 
 Read `~/.t3/desk/rules.md` and `~/.t3/desk/<slug>/rules.md` if present; the user's
 house rules override this skill's defaults. Reuse the effort's slug and read its
-`handoff.md`. Use GitHub or Linear when the effort needs them, through an
+`handoff.md` and `effort.json` if present for existing workers, PRs, tags, and
+model profiles. Use GitHub or Linear when the effort needs them, through an
 available connector or authenticated CLI.
 
 Call `orchestrator_capabilities` to discover the coordinator ID and available
@@ -28,7 +29,7 @@ starting writers, read [Effort workspace](references/operations.md#effort-worksp
 ## Naming
 
 Keep the effort tag, including its emoji: for example, `✉️ email`. Reuse it from
-the ledger or existing Hawk configuration; choose one for a new effort.
+the ledger or effort configuration; choose one for a new effort.
 
 - Coordinator: `[🔺 kestrel // <tag>] <emoji> <title>`.
 - Workers and reviewers: `[<tag>] <emoji> <title>`.
@@ -126,4 +127,3 @@ sending more work.
 When the user is leaving or usage is running low, read
 [Away or low usage](references/operations.md#away-or-low-usage).
 For a coordinator change, read [Takeover](references/operations.md#recovery-and-takeover).
-For a live Hawk effort, read [Hawk migration](references/operations.md#existing-hawk-efforts).
