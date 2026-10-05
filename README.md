@@ -8,6 +8,7 @@
 | [github-pr-fastpath](./skills/github-pr-fastpath/SKILL.md) | Resolves a GitHub PR URL directly and inspects it with `gh` without searching. |
 | [kestrel](./skills/kestrel/SKILL.md) | Coordinates an effort from one T3 Code thread with app-owned delegation, cross-provider workers, explicit worktrees, PR review, and handoffs. |
 | [stacked-prs](./skills/stacked-prs/SKILL.md) | Keeps a concise, marked summary synchronized across every PR in a native GitHub stack. |
+| [youtube-canvas](./skills/youtube-canvas/SKILL.md) | Turns long YouTube videos into editable tldraw Offline research canvases with a movable picture-in-picture player, seekable timestamps, and thematic notes. |
 
 ## Install
 

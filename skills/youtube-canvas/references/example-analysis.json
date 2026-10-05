@@ -1,0 +1,22 @@
+{
+  "mode": "research",
+  "summary": "The speaker explains why the current architecture accumulates hidden coupling, then proposes explicit ownership boundaries and a staged migration that preserves working behavior while moving responsibilities behind stable interfaces.",
+  "keyIdeas": [
+    "Hidden ownership is more expensive than visible duplication.",
+    "Migration order should follow dependency direction rather than file structure.",
+    "Visualizing the runtime boundary exposes coupling the module graph hides."
+  ],
+  "segments": [
+    {
+      "id": "seg-001",
+      "start": 112,
+      "end": 265,
+      "title": "The real boundary problem",
+      "summary": "The talk reframes the problem from module organization to runtime ownership: several modules can import cleanly while still sharing lifecycle and state in ways that force them to load together.",
+      "whyItMatters": "This changes what should be measured and where a migration boundary belongs.",
+      "quote": "Imports are not ownership.",
+      "cluster": "Architecture model",
+      "tags": ["ownership", "runtime"]
+    }
+  ]
+}

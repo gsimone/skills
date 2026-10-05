@@ -1,0 +1,17 @@
+interface:
+  display_name: youtube canvas
+  short_description: Turn long YouTube videos into editable tldraw Offline research
+    canvases with timestamped extracts, summaries, thematic grouping, an interactive
+    player, and room for human notes. Use when the user asks to study, summarize,
+    map, dissect, annotate, or make a spatial canvas/notebook from a YouTube video,
+    talk, interview, lecture, podcast, demo, or conference recording. Also use when
+    they want timestamp-linked visual notes rather than a linear transcript.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
