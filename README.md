@@ -8,6 +8,7 @@
 | [github-pr-fastpath](./skills/github-pr-fastpath/SKILL.md) | Resolves a GitHub PR URL directly and inspects it with `gh` without searching. |
 | [kestrel](./skills/kestrel/SKILL.md) | Coordinates an effort from one T3 Code thread with app-owned delegation, cross-provider workers, explicit worktrees, PR review, and handoffs. |
 | [stacked-prs](./skills/stacked-prs/SKILL.md) | Keeps a concise, marked summary synchronized across every PR in a native GitHub stack. |
+| [webgpu-chart-rendering](./skills/webgpu-chart-rendering/SKILL.md) | Builds fast, polished interactive charts on WebGPU with TypeGPU, including rendering, styling, and performance verification. |
 
 ## Install
 
