@@ -7,6 +7,7 @@
 | [hawk](./skills/hawk/SKILL.md) | Runs one coordinator thread per effort over t3code agent threads, Linear and GitHub: event scan, naming, spawning, reviews, settling, wake-ups and takeover. |
 | [github-pr-fastpath](./skills/github-pr-fastpath/SKILL.md) | Resolves a GitHub PR URL directly and inspects it with `gh` without searching. |
 | [kestrel](./skills/kestrel/SKILL.md) | Coordinates an effort from one T3 Code thread with app-owned delegation, cross-provider workers, explicit worktrees, PR review, and handoffs. |
+| [page-to-video](./skills/page-to-video/SKILL.md) | Exports a deterministic web page, HTML animation or WebGL canvas to an MP4, frame-exact and faster than real time, by rendering, capturing and encoding inside the page. |
 | [stacked-prs](./skills/stacked-prs/SKILL.md) | Keeps a concise, marked summary synchronized across every PR in a native GitHub stack. |
 | [webgpu-chart-rendering](./skills/webgpu-chart-rendering/SKILL.md) | Builds or optimizes WebGPU charts with TypeGPU, with guidance on caching, styling, and performance measurement. |
 
